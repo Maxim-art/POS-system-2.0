@@ -1,8 +1,12 @@
 import path from 'path';
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 
-export default defineConfig({
+
+export default defineConfig(({ mode }) => {
+  process.env = { ...process.env, ...loadEnv(mode, process.cwd()) };
+
+  return {
   plugins: [react()],
   resolve: {
     alias: {
@@ -13,15 +17,16 @@ export default defineConfig({
     exclude: ['lucide-react'],
   },
 
-
   server: {
-    proxy: {
-      '/api': {
-        target: 'http://213.139.210.248:3000',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
-      },
-    },
-  },
+    port: process.env.VITE_SERVER_PORT ? parseInt(process.env.VITE_SERVER_PORT) : 5173,
 
+    // proxy: {
+    //   '/api': {
+    //     target: 'http://213.139.210.248:3000',
+    //     changeOrigin: true,
+    //     rewrite: (path) => path.replace(/^\/api/, ''),
+    //   },
+    // },
+  },
+  };
 });
