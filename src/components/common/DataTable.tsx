@@ -40,6 +40,7 @@ export function DataTable<TData>({
   onRowClick,
   isLoading = false,
   handleChangeSearch,
+  meta,
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
@@ -66,6 +67,7 @@ export function DataTable<TData>({
       sorting,
       globalFilter,
     },
+    meta,
   });
 
   // Reset to first page when filter changes
@@ -150,12 +152,12 @@ export function DataTable<TData>({
 
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
-          Showing {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} to{' '}
-          {Math.min(
-            (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
-            table.getFilteredRowModel().rows.length
-          )}{' '}
-          of {table.getFilteredRowModel().rows.length} results
+          {/*Showing {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} to{' '}*/}
+          {/*{Math.min(*/}
+          {/*  (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,*/}
+          {/*  table.getFilteredRowModel().rows.length*/}
+          {/*)}{' '}*/}
+          {/*of {table.getFilteredRowModel().rows.length} results*/}
         </div>
         <div className="flex items-center space-x-2">
           <Button
