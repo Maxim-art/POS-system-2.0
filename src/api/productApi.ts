@@ -20,11 +20,15 @@ export const productApi = {
   search: (params: ProductSearchParams): Promise<AxiosResponse<ApiResponse<Product[]>>> =>
     apiClient.get('/product/search', { params }),
 
-  create: (data: Product): Promise<AxiosResponse<ApiResponse<Product>>> =>
-    apiClient.post('/product/create', data),
+  create: (data: FormData): Promise<AxiosResponse<ApiResponse<Product>>> =>
+    apiClient.post('/product/create', data, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
 
-  update: (barcode: string, data: Partial<Product>): Promise<AxiosResponse<ApiResponse<Product>>> =>
-    apiClient.put(`/product/update/${barcode}`, data),
+  update: (barcode: string, data: FormData): Promise<AxiosResponse<ApiResponse<Product>>> =>
+    apiClient.put(`/product/update/${barcode}`, data, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
 
   delete: (barcode: string): Promise<AxiosResponse<ApiResponse<void>>> =>
     apiClient.delete(`/product/delete/${barcode}`),
