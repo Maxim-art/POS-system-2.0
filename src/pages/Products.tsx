@@ -65,6 +65,18 @@ const columns: ColumnDef<Product>[] = [
     ),
   },
   {
+    accessorKey: 'image',
+    header: 'Изображения',
+    cell: ({ row }) => {
+      const images: Array<string> = row.getValue('image');
+      return !!images.length && (
+          <div className="flex gap-1 flex-wrap max-w-12 border border-gray-500">
+            {images.map((imageHref) => (<img src={imageHref} alt={''} className="w-auto" />))}
+          </div>
+      );
+    },
+  },
+  {
     accessorKey: 'created_at',
     header: 'Дата создания',
     cell: ({ row }) =>
