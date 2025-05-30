@@ -4,11 +4,9 @@ import {
   flexRender,
   getCoreRowModel,
   useReactTable,
-  getPaginationRowModel,
   getSortedRowModel,
   SortingState,
   getFilteredRowModel,
-  // RowData,
 } from '@tanstack/react-table';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -30,6 +28,9 @@ interface DataTableProps<TData> {
   onRowClick?: (row: TData) => void;
   isLoading?: boolean;
   handleChangeSearch?: (val: string) => void;
+  rowCount?: number; // Общее количество записей на сервере
+  pageSize: number; // Размер страницы
+  handleChangePagination: (pagination: { pageIndex: number; pageSize: number }) => void; // Callback для изменения страницы
 }
 
 export function DataTable<TData>({
@@ -40,24 +41,29 @@ export function DataTable<TData>({
   onRowClick,
   isLoading = false,
   handleChangeSearch,
+  rowCount = 0,
+  pageSize,
+  handleChangePagination,
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
-
   const [localFilter, setLocalFilter] = useState('');
+  const [pageIndex, setPageIndex] = useState(0);
 
   useEffect(() => {
     if (handleChangeSearch) {
       handleChangeSearch(localFilter);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ localFilter ]);
+  }, [localFilter, handleChangeSearch]);
+
+  useEffect(() => {
+    handleChangePagination({ pageIndex, pageSize });
+  }, [pageIndex, pageSize, handleChangePagination]);
 
   const table = useReactTable({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     onSortingChange: setSorting,
@@ -66,14 +72,24 @@ export function DataTable<TData>({
       sorting,
       globalFilter,
     },
+    manualPagination: true, // Включаем ручную пагинацию
+    pageCount: Math.ceil(rowCount / pageSize), // Вычисляем общее количество страниц
   });
 
-  // Reset to first page when filter changes
+  // Сбрасываем страницу на первую при изменении фильтра
   useEffect(() => {
-    table.setPageIndex(0);
-  }, [globalFilter, table]);
+    setPageIndex(0);
+  }, [globalFilter]);
 
-  return (
+  const handlePreviousPage = () => {
+    setPageIndex(prev => Math.max(prev - 1, 0));
+  };
+
+  const handleNextPage = () => {
+    setPageIndex(prev => Math.min(prev + 1, table.getPageCount() - 1));
+  };
+
+  return(
     <div className="w-full space-y-4">
       {searchKey && (
         <div className="relative">
@@ -81,7 +97,6 @@ export function DataTable<TData>({
           <Input
             placeholder={searchPlaceholder}
             value={localFilter ?? ''}
-            // onChange={(e) => setGlobalFilter(e.target.value)}
             onChange={(e) => setLocalFilter(e.target.value)}
             className="pl-10"
           />
@@ -116,7 +131,7 @@ export function DataTable<TData>({
                   Loading...
                 </TableCell>
               </TableRow>
-            ) : table.getRowModel().rows?.length ? (
+            ) : data?.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
@@ -140,7 +155,7 @@ export function DataTable<TData>({
                   colSpan={columns.length}
                   className="h-24 text-center"
                 >
-                  No results found.
+                  Пусто
                 </TableCell>
               </TableRow>
             )}
@@ -150,31 +165,26 @@ export function DataTable<TData>({
 
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
-          Showing {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} to{' '}
-          {Math.min(
-            (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
-            table.getFilteredRowModel().rows.length
-          )}{' '}
-          of {table.getFilteredRowModel().rows.length} results
+          Showing {pageIndex * pageSize + 1} to{' '}
+          {Math.min((pageIndex + 1) * pageSize, rowCount)} of {rowCount} results
         </div>
         <div className="flex items-center space-x-2">
           <Button
             variant="outline"
             size="sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
+            onClick={handlePreviousPage}
+            disabled={pageIndex === 0}
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <div className="text-sm font-medium">
-            Page {table.getState().pagination.pageIndex + 1} of{' '}
-            {table.getPageCount()}
+            Page {pageIndex + 1} of {table.getPageCount()}
           </div>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
+            onClick={handleNextPage}
+            disabled={pageIndex >= table.getPageCount() - 1}
           >
             <ChevronRight className="h-4 w-4" />
           </Button>

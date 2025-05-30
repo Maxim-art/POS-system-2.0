@@ -133,47 +133,6 @@ export function ScanerPage() {
                                     </div>
                                 </div>
                             )}
-
-                            {/* {loading ? (
-                <p>Загрузка товаров...</p>
-              ) : products.length === 0 ? (
-                <p>Товары не найдены</p>
-              ) : (
-                <>
-                  <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                    {products.map((product) => (
-                      <Button
-                        key={product.id}
-                        variant="outline"
-                        className="h-20 flex flex-col justify-center"
-                        onClick={() => handleScan(product.barcode)}
-                      >
-                        <span className="font-medium">{product.name}</span>
-                        <span className="font-medium">{product.barcode}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {formatCurrency(Number(product.price))}
-                        </span>
-                      </Button>
-                    ))}
-                  </div>
-
-                  <div className="mt-4 flex justify-between">
-                    <Button variant="outline" disabled={page === 1} onClick={handlePreviousPage}>
-                      Назад
-                    </Button>
-                    <span className="self-center">
-                      Страница {page} из {totalPages}
-                    </span>
-                    <Button
-                      variant="outline"
-                      disabled={page === totalPages}
-                      onClick={handleNextPage}
-                    >
-                      Вперед
-                    </Button>
-                  </div>
-                </>
-              )} */}
                         </CardContent>
                     </Card>
 

@@ -1,42 +1,40 @@
-import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
-import {ColumnDef} from '@tanstack/react-table';
-import {LoaderPinwheel, Plus} from 'lucide-react';
-import {useMemo, useState} from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ColumnDef } from '@tanstack/react-table';
+import { LoaderPinwheel, Plus } from 'lucide-react';
 
-import {cashierApi} from '@/api/cashierApi';
-import {getUserColumns} from '@/components/cashiers/Columns';
-import {CashierForm} from '@/components/cashiers/CashierForm';
-import {DataTable} from '@/components/common/DataTable';
-import {Button} from '@/components/ui/button';
-import {Dialog, DialogContent, DialogHeader, DialogTitle} from '@/components/ui/dialog';
-import {useAuth} from '@/contexts/AuthContext';
-import {useToast} from '@/hooks/use-toast';
-import type {AxiosError} from 'axios';
-import type {Cashier} from '@/types/api';
-
+import { cashierApi } from '@/api/cashierApi';
+import { getUserColumns } from '@/components/cashiers/Columns';
+import { CashierForm } from '@/components/cashiers/CashierForm';
+import { DataTable } from '@/components/common/DataTable';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import type { AxiosError } from 'axios';
+import type { Cashier, Pagination } from '@/types/api';
 
 export function UsersPage() {
-    const {toast} = useToast();
-    const {user} = useAuth();
+    const { toast } = useToast();
+    const { user } = useAuth();
     const isAdmin = user?.role === 'admin';
 
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<Cashier | undefined>();
 
-    const [page, setPage] = useState(1);
-    const [pageSize, setPageSize] = useState(5);
+    const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
     const [searchValue, setSearchValue] = useState('');
 
     const queryClient = useQueryClient();
 
     const {
-        data: pagedUsers = [],
+        data: pagedUsers = { data: [], pagination: { total_records: 0, current_page: 1, total_pages: 0, next_page: null, prev_page: null } },
         isLoading: listLoading,
         error: listError,
-    } = useQuery<Cashier[], AxiosError>({
-        queryKey: ['users', 'list', page, pageSize],
-        queryFn: () =>
-            cashierApi.getAll(page, pageSize).then(res => res.data.data),
+        refetch
+    } = useQuery<{ data: Cashier[]; pagination: Pagination }, AxiosError>({
+        queryKey: ['users', 'list', pagination.pageIndex + 1, pagination.pageSize],
+        queryFn: () => cashierApi.getAll(pagination.pageIndex + 1, pagination.pageSize).then(res => res.data),
         keepPreviousData: true,
         enabled: searchValue.trim() === '',
         onError: err => {
@@ -49,13 +47,12 @@ export function UsersPage() {
     });
 
     const {
-        data: searchResults = [],
+        data: searchResults = { data: [], pagination: { total_records: 0, current_page: 1, total_pages: 0, next_page: null, prev_page: null } },
         isLoading: searchLoading,
         error: searchError,
-    } = useQuery<Cashier[], AxiosError>({
+    } = useQuery<{ data: Cashier[]; pagination: Pagination }, AxiosError>({
         queryKey: ['users', 'search', searchValue],
-        queryFn: () =>
-            cashierApi.search(searchValue).then(res => res.data ?? []),
+        queryFn: () => cashierApi.search({ q: searchValue }).then(res => res.data ?? { data: [], pagination: { total_records: 0, current_page: 1, total_pages: 0, next_page: null, prev_page: null } }),
         enabled: Boolean(searchValue.trim()),
         onError: err => {
             toast({
@@ -66,18 +63,20 @@ export function UsersPage() {
         },
     });
 
+    useEffect(() => {
+        refetch();
+    }, [pagination.pageIndex, pagination.pageSize, refetch]);
 
-    const users = searchValue.trim() ? searchResults : pagedUsers;
+    const users = searchValue.trim() ? searchResults.data : pagedUsers.data;
+    const rowCount = searchValue.trim() ? searchResults.pagination.total_records : pagedUsers.pagination.total_records;
     const isLoading = searchValue.trim() ? searchLoading : listLoading;
     const error = searchValue.trim() ? searchError : listError;
-    const isSearching = Boolean(searchValue.trim());
 
-
-    const {mutate: deleteUser} = useMutation({
+    const { mutate: deleteUser } = useMutation({
         mutationFn: (id: number) => cashierApi.delete(id),
         onSuccess: () => {
-            toast({title: 'Кассир удалён'});
-            queryClient.invalidateQueries({queryKey: ['users']});
+            toast({ title: 'Кассир удалён' });
+            queryClient.invalidateQueries({ queryKey: ['users'] });
         },
         onError: (err: AxiosError) =>
             toast({
@@ -99,13 +98,12 @@ export function UsersPage() {
         [deleteUser]
     );
 
-
-    if (isLoading) return (
+    if (isLoading && !pagedUsers.data.length) return (
         <div className="centered-spin-icon">
             <LoaderPinwheel className="spin-icon"/>
         </div>
     );
-    if (error) return <p>Error loading users: {error?.message}</p>;
+    if (error) return <p>Ошибка загрузки пользователей: {error?.message}</p>;
 
     return (
         <div className="space-y-8">
@@ -124,10 +122,12 @@ export function UsersPage() {
                 )}
             </div>
 
-
             <DataTable<Cashier>
                 columns={columns}
                 data={users}
+                rowCount={rowCount}
+                pageSize={pagination.pageSize}
+                handleChangePagination={setPagination}
                 isLoading={isLoading}
                 searchPlaceholder="Поиск пользователей..."
                 searchKey="name"
@@ -136,7 +136,6 @@ export function UsersPage() {
                     setIsFormOpen(true);
                 }}
                 handleChangeSearch={setSearchValue}
-                isSearching={isSearching}
             />
 
             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
@@ -149,8 +148,8 @@ export function UsersPage() {
                     <CashierForm
                         cashier={editingUser}
                         onSuccess={() => {
-                            toast({title: 'Сохранено'});
-                            queryClient.invalidateQueries({queryKey: ['users']});
+                            toast({ title: 'Пользователь сохранён' });
+                            queryClient.invalidateQueries({ queryKey: ['users'] });
                             setIsFormOpen(false);
                         }}
                         onCancel={() => setIsFormOpen(false)}
@@ -159,5 +158,4 @@ export function UsersPage() {
             </Dialog>
         </div>
     );
-
 }

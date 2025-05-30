@@ -16,25 +16,34 @@ const formSchema = z.object({
     name: z.string().min(1, 'Обязательное поле'),
     barcode: z.string().min(1, 'Обязательное поле'),
     real_price: z
-      .string()
-      .transform(val => (val === '' ? 0 : Number(val))) // Transform empty string to 0, otherwise to number
-      .refine(val => !isNaN(val), { message: 'Цена должна быть числом' })
-      .refine(val => val >= 0, { message: 'Цена должна быть 0 или больше' }),
+        .string()
+        .transform(val => (val === '' ? 0 : Number(val)))
+        .refine(val => !isNaN(val), { message: 'Цена должна быть числом' })
+        .refine(val => val >= 0, { message: 'Цена должна быть 0 или больше' }),
     price: z
         .string()
-        .transform(val => (val === '' ? 0 : Number(val))) // Transform empty string to 0, otherwise to number
+        .transform(val => (val === '' ? 0 : Number(val)))
         .refine(val => !isNaN(val), { message: 'Цена должна быть числом' })
         .refine(val => val >= 0, { message: 'Цена должна быть 0 или больше' }),
     stock: z
         .string()
-        .transform(val => (val === '' ? 0 : Number(val))) // Transform empty string to 0, otherwise to number
+        .transform(val => (val === '' ? 0 : Number(val)))
         .refine(val => !isNaN(val), { message: 'Количество должно быть числом' })
         .refine(val => val >= 0, { message: 'Количество должно быть 0 или больше' }),
     description: z.string().optional(),
     branch_id: z
         .string()
         .transform(val => Number(val))
-        .refine(val => val >= 1, { message: 'Филиал должен быть выбран' })
+        .refine(val => val >= 1, { message: 'Филиал должен быть выбран' }),
+    images: z
+        .array(z.instanceof(File))
+        .optional()
+        .refine(files => !files || files.every(file => file.type.startsWith('image/')), {
+            message: 'Только изображения разрешены'
+        })
+        .refine(files => !files || files.length <= 5, {
+            message: 'Максимум 5 изображений'
+        })
 })
 
 type FormData = z.infer<typeof formSchema>
@@ -51,17 +60,47 @@ export function ProductForm({ product, branches, onSuccess, onCancel }: ProductF
     const [isSubmitting, setIsSubmitting] = useState(false)
     const queryClient = useQueryClient()
 
-    // Mutation for creating a product
+    const [imagePreviews, setImagePreviews] = useState<string[]>([])
+
     const createMutation = useMutation({
-        mutationFn: (data: Product) => productApi.create(data),
+        mutationFn: (data: FormData) => {
+            const formData = new FormData()
+            formData.append('name', data.name)
+            formData.append('barcode', data.barcode)
+            formData.append('price', String(data.price))
+            formData.append('real_price', String(data.real_price))
+            formData.append('stock', String(data.stock))
+            formData.append('branch_id', String(data.branch_id))
+            if (data.description) {
+                formData.append('description', data.description)
+            }
+            if (data.images) {
+                data.images.forEach(file => formData.append('images', file))
+            }
+            return productApi.create(formData)
+        },
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ['products'] })
         }
     })
 
-    // Mutation for updating a product
     const updateMutation = useMutation({
-        mutationFn: (data: Partial<Product>) => productApi.update(product!.barcode, data),
+        mutationFn: (data: FormData) => {
+            const formData = new FormData()
+            formData.append('name', data.name)
+            formData.append('barcode', data.barcode)
+            formData.append('price', String(data.price))
+            formData.append('real_price', String(data.real_price))
+            formData.append('stock', String(data.stock))
+            formData.append('branch_id', String(data.branch_id))
+            if (data.description) {
+                formData.append('description', data.description)
+            }
+            if (data.images) {
+                data.images.forEach(file => formData.append('images', file))
+            }
+            return productApi.update(product!.barcode, formData)
+        },
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ['products'] })
         }
@@ -74,7 +113,8 @@ export function ProductForm({ product, branches, onSuccess, onCancel }: ProductF
         price: String(product?.price || 0),
         stock: String(product?.stock || 0),
         description: product?.description || '',
-        branch_id: String(product?.branch_id) || branches.length ? String(branches[0].id) : "",
+        branch_id: String(product?.branch_id) || (branches.length ? String(branches[0].id) : ''),
+        images: []
     }
 
     const form = useForm<FormData>({
@@ -84,22 +124,9 @@ export function ProductForm({ product, branches, onSuccess, onCancel }: ProductF
 
     const onSubmit = async (data: FormData) => {
         setIsSubmitting(true)
-
-        // Prepare the payload by transforming the data to match the Product type
-        const payload: Product = {
-            name: data.name,
-            barcode: data.barcode,
-            price: Number(data.price), // Already transformed by Zod
-            real_price: Number(data.real_price),
-            stock: Number(data.stock), // Already transformed by Zod
-            description: data.description,
-            branch_id: Number(data.branch_id) // Already transformed by Zod
-        }
-
         try {
             if (product) {
-                // Update existing product
-                const response = await updateMutation.mutateAsync(payload)
+                const response = await updateMutation.mutateAsync(data)
                 if (response.data.statusCode > 201) {
                     throw new Error('Ошибка при обновлении товара')
                 }
@@ -108,8 +135,7 @@ export function ProductForm({ product, branches, onSuccess, onCancel }: ProductF
                     description: `${data.name} был успешно обновлен.`
                 })
             } else {
-                // Create new product
-                const response = await createMutation.mutateAsync(payload)
+                const response = await createMutation.mutateAsync(data)
                 if (response.data.statusCode > 201) {
                     throw new Error('Ошибка при создании товара')
                 }
@@ -188,17 +214,17 @@ export function ProductForm({ product, branches, onSuccess, onCancel }: ProductF
 
                 <div className='grid grid-cols-1 gap-6 sm:grid-cols-3'>
                     <FormField
-                      control={form.control}
-                      name='real_price'
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Закупочная цена</FormLabel>
-                          <FormControl>
-                            <Input type='number' min={0} step={0.01} {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                        control={form.control}
+                        name='real_price'
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Закупочная цена</FormLabel>
+                                <FormControl>
+                                    <Input type='number' min={0} step={0.01} {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
                     />
 
                     <FormField
@@ -220,7 +246,7 @@ export function ProductForm({ product, branches, onSuccess, onCancel }: ProductF
                         name='stock'
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Количество на складе</FormLabel>
+                                <FormLabel>Кол-во на складе</FormLabel>
                                 <FormControl>
                                     <Input type='number' min={0} {...field} />
                                 </FormControl>
@@ -231,17 +257,60 @@ export function ProductForm({ product, branches, onSuccess, onCancel }: ProductF
                 </div>
 
                 <FormField
-                  control={form.control}
-                  name='images'
-                  render={() => (
-                    <FormItem>
-                      <FormLabel>TODO: Изображения (необязательно)</FormLabel>
-                      <FormControl>
-                        <Input type='file' />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                    control={form.control}
+                    name='images'
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Изображения (необязательно)</FormLabel>
+                            <FormControl>
+                                {/* <Input
+                  type='file'
+                  accept='image/*'
+                  multiple
+                  onChange={e => {
+                    const files = Array.from(e.target.files || [])
+                    field.onChange(files)
+                  }}
+                /> */}
+                                <Input
+                                    type='file'
+                                    accept='image/*'
+                                    multiple
+                                    onChange={e => {
+                                        const files = Array.from(e.target.files || [])
+                                        field.onChange(files)
+
+                                        const previews = files.map(file => URL.createObjectURL(file))
+                                        setImagePreviews(previews)
+                                    }}
+                                />
+                            </FormControl>
+                            {imagePreviews.length > 0 && (
+                                <div className='mt-2 grid grid-cols-2 sm:grid-cols-3 gap-4'>
+                                    {imagePreviews.map((src, index) => (
+                                        <img
+                                            key={index}
+                                            src={src}
+                                            alt={`preview-${index}`}
+                                            className='w-full h-auto rounded border'
+                                        />
+                                    ))}
+                                </div>
+                            )}
+
+                            {field.value && field.value.length > 0 && (
+                                <div className='mt-2'>
+                                    <p>Выбранные файлы:</p>
+                                    <ul className='list-disc pl-5'>
+                                        {field.value.map((file, index) => (
+                                            <li key={index}>{file.name}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+                            <FormMessage />
+                        </FormItem>
+                    )}
                 />
 
                 <FormField

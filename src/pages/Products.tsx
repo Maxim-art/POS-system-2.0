@@ -1,284 +1,207 @@
-import { useState } from 'react';
-import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Edit, MoreHorizontal, Plus, Trash } from 'lucide-react';
-import { Product } from '@/types/api.ts';
-import { formatCurrency } from '@/lib/utils';
-import {
-  useQuery, useMutation, useQueryClient, keepPreviousData,
-} from '@tanstack/react-query';
-import { productApi, ProductSearchParams } from '@/api/productApi';
-import { branchApi } from '@/api/branchApi';
-import { ColumnDef } from '@tanstack/react-table';
-import { DataTable } from '@/components/common/DataTable';
-import { ProductForm } from '@/components/products/ProductForm';
-
-// Определение колонок для DataTable
-const columns: ColumnDef<Product>[] = [
-  {
-    accessorKey: 'name',
-    header: 'Название',
-    cell: ({ row }) => <div className="font-medium">{row.getValue('name')}</div>,
-  },
-  {
-    accessorKey: 'barcode',
-    header: 'Баркод',
-  },
-  {
-    accessorKey: 'price',
-    header: 'Цена',
-    cell: ({ row }) => formatCurrency(parseFloat(row.getValue('price'))),
-  },
-  {
-    accessorKey: 'stock',
-    header: 'Остаток',
-  },
-  {
-    accessorKey: 'branch_id',
-    header: 'Филиал',
-    cell: ({ row, table }) => {
-      let branches = table.options.meta?.branches || [];
-      if (branches.data) {
-        branches = branches.data;
-      }
-      const branch = branches.find((b: any) => b.id === row.getValue('branch_id'));
-      return branch?.name || 'Неизвестный филиал';
-    },
-  },
-  {
-    accessorKey: 'description',
-    header: 'Описание',
-    cell: ({ row }) => (
-      <div className="max-w-xs truncate" title={row.getValue('description')}>
-        {row.getValue('description')}
-      </div>
-    ),
-  },
-  {
-    accessorKey: 'created_at',
-    header: 'Дата создания',
-    cell: ({ row }) =>
-      new Date(row.getValue('created_at')).toLocaleDateString('ru-RU'),
-  },
-  {
-    id: 'actions',
-    header: () => <div className="text-right">Действия</div>,
-    cell: ({ row, table }) => {
-      const product = row.original;
-      const meta = table?.options?.meta as any;
-
-      // Проверяем, что meta существует и содержит нужные свойства
-      if (!meta || !meta.setEditingProduct || !meta.setIsFormOpen || !meta.handleDelete) {
-        return null; // Не рендерим действия, если meta недоступно
-      }
-
-      const { setEditingProduct, setIsFormOpen, handleDelete } = meta;
-
-      return (
-        <div className={'flex justify-end'}>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="h-8 w-8 p-0">
-              <span className="sr-only">Открыть меню</span>
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Действия</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => {
-                setEditingProduct(product);
-                setIsFormOpen(true);
-              }}
-            >
-              <Edit className="mr-2 h-4 w-4" />
-              <span>Редактировать</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => handleDelete(product)}
-              className="text-destructive focus:text-destructive"
-            >
-              <Trash className="mr-2 h-4 w-4" />
-              <span>Удалить</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        </div>
-      );
-    },
-    enableSorting: false,
-  },
-];
+import { useState, useMemo } from 'react'
+import { useToast } from '@/hooks/use-toast'
+import { useAuth } from '@/contexts/AuthContext'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Plus, LoaderPinwheel } from 'lucide-react'
+import { Product } from '@/types/api.ts'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
+import { productApi, ProductSearchParams } from '@/api/productApi'
+import { branchApi } from '@/api/branchApi'
+import { DataTable } from '@/components/common/DataTable'
+import { ProductForm } from '@/components/products/ProductForm'
+import { createProductColumns } from '@/components/products/Columns'
 
 // Функции для получения данных
 const fetchProducts = async (page: number = 1, pageSize: number = 10): Promise<Product[]> => {
-  try {
-    const response = await productApi.getAll(page, pageSize);
-    return response.data;
-  } catch (error) {
-    throw new Error('Не удалось загрузить продукты: ' + error.message);
-  }
-};
+    try {
+        const response = await productApi.getAll(page, pageSize)
+        return response.data
+    } catch (error) {
+        throw new Error('Не удалось загрузить продукты: ' + error.message)
+    }
+}
 
 const fetchBranches = async () => {
-  const response = await branchApi.getAll();
-  return response.data;
-};
+    const response = await branchApi.getAll()
+    return response.data
+}
 
 const searchProducts = async (searchValue: string): Promise<Product[]> => {
-  try {
-    const params: ProductSearchParams = { q: searchValue };
-    const response = await productApi.search(params);
-    return response.data;
-  } catch (error) {
-    throw new Error('Не удалось выполнить поиск продуктов: ' + error.message);
-  }
-};
-
-const deleteProduct = async (barcode: string) => {
-  const response = await productApi.delete(barcode);
-  return response.data;
-};
+    try {
+        const params: ProductSearchParams = { q: searchValue }
+        const response = await productApi.search(params)
+        return response.data
+    } catch (error) {
+        throw new Error('Не удалось выполнить поиск продуктов: ' + error.message)
+    }
+}
 
 export function ProductsPage() {
-  const { toast } = useToast();
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
+    const { toast } = useToast()
+    const { user } = useAuth()
+    const queryClient = useQueryClient()
 
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
-  const [searchValue, setSearchValue] = useState('');
+    const [isFormOpen, setIsFormOpen] = useState(false)
+    const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined)
+    const [searchValue, setSearchValue] = useState('')
 
-  const [ pagePagination, setPagePagination ] = useState({
-    pageIndex: 0,
-    pageSize: 10,
-  });
+    const [pagePagination, setPagePagination] = useState({
+        pageIndex: 0,
+        pageSize: 10
+    })
 
-  // Получение продуктов
-  const { data: dataProducts, isLoading, error } = useQuery({
-    queryKey: [ 'products', pagePagination.pageIndex + 1 ],
-    queryFn: () => fetchProducts(
-      pagePagination.pageIndex + 1, // TODO: +1 потому что на беке страницы с 1 формируются, возможно править бек
-      pagePagination.pageSize,
-    ),
-    placeholderData: keepPreviousData,
-  });
+    const isAdmin = user?.role === 'admin'
 
-  // Получение филиалов
-  const { data: dataBranches } = useQuery({
-    queryKey: ['branches'],
-    queryFn: fetchBranches,
-  });
+    // Получение продуктов
+    const {
+        data: dataProducts,
+        isLoading,
+        error
+    } = useQuery({
+        queryKey: ['products', pagePagination.pageIndex + 1],
+        queryFn: () =>
+            fetchProducts(
+                pagePagination.pageIndex + 1,
+                pagePagination.pageSize
+            ),
+        placeholderData: keepPreviousData,
+        staleTime: 5 * 60 * 1000
+    })
 
-  // Поиск продуктов
-  const { data: searchResults } = useQuery({
-    queryKey: ['products', searchValue],
-    queryFn: () => searchProducts(searchValue),
-    enabled: Boolean(searchValue),
-  });
+    // Получение филиалов
+    const { data: dataBranches } = useQuery({
+        queryKey: ['branches'],
+        queryFn: fetchBranches,
+        staleTime: 10 * 60 * 1000
+    })
 
-  const isAdmin = user?.role === 'admin';
+    // Поиск продуктов
+    const { data: searchResults } = useQuery({
+        queryKey: ['products', 'search', searchValue],
+        queryFn: () => searchProducts(searchValue),
+        enabled: Boolean(searchValue.trim()),
+        staleTime: 2 * 60 * 1000
+    })
 
-  // Мутация для удаления продукта
-  const mutation = useMutation({
-    mutationFn: deleteProduct,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-      toast({
-        title: 'Продукт удален',
-        description: 'Продукт успешно удален.',
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Ошибка',
-        description: 'Не удалось удалить продукт: ' + error.message,
-        variant: 'destructive',
-      });
-    },
-  });
+    // Мутация для удаления продукта
+    const deleteMutation = useMutation({
+        mutationFn: (barcode: string) => productApi.delete(barcode),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['products'] })
+            toast({
+                title: 'Продукт удален',
+                description: 'Продукт успешно удален.'
+            })
+        },
+        onError: (error: any) => {
+            console.error('Delete failed:', error)
+            toast({
+                title: 'Ошибка',
+                description: 'Не удалось удалить продукт: ' + error.message,
+                variant: 'destructive'
+            })
+        }
+    })
 
-  const handleDelete = (product: Product) => {
-    mutation.mutate(product.barcode);
-  };
+    // Создаем стабильные функции с useCallback или определяем их внутри useMemo
+    const handleDelete = useMemo(() => {
+        return (product: Product) => {
+            console.log('handleDelete called with:', product)
+            deleteMutation.mutate(product.barcode)
+        }
+    }, [deleteMutation])
 
-  // Данные для отображения: результаты поиска или все продукты
-  const displayData = searchValue && searchResults ? searchResults : dataProducts?.data || [];
+    const handleEdit = useMemo(() => {
+        return (product: Product) => {
+            console.log('handleEdit called with:', product)
+            setEditingProduct(product)
+            setIsFormOpen(true)
+        }
+    }, [])
 
-  // Обработка ошибок
-  if (error) {
-    return <div className="text-center text-destructive">Ошибка загрузки продуктов: {error.message}</div>;
-  }
+    // Создание колонок с мемоизацией
+    const columns = useMemo(() => {
+        console.log('Creating columns with functions:', { handleEdit, handleDelete })
+        return createProductColumns(handleEdit, handleDelete, dataBranches?.data || [])
+    }, [handleEdit, handleDelete, dataBranches?.data])
 
-  // Скрытие колонки действий для не-админов
-  const filteredColumns = isAdmin ? columns : columns.filter((col) => col.id !== 'actions');
+    // Данные для отображения
+    const displayData = searchValue.trim() && searchResults ? searchResults : dataProducts?.data || []
 
-  return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold tracking-tight">Продукты</h2>
-        {isAdmin && (
-          <Button
-            onClick={() => {
-              setEditingProduct(undefined);
-              setIsFormOpen(true);
-            }}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Добавить продукт
-          </Button>
-        )}
-      </div>
+    // Загрузка
+    if (isLoading) {
+        return (
+            <div className='flex justify-center items-center min-h-[400px]'>
+                <LoaderPinwheel className='h-8 w-8 animate-spin' />
+            </div>
+        )
+    }
 
-      {/* Таблица с использованием DataTable */}
-      <DataTable
-        columns={filteredColumns}
-        data={displayData}
-        rowCount={!searchValue && dataProducts?.pagination.total_records}
-        searchPlaceholder="Поиск по названию..."
-        searchKey="name"
-        isLoading={isLoading}
-        handleChangeSearch={setSearchValue}
-        pageSize={pagePagination.pageSize}
-        handleChangePagination={setPagePagination}
-        meta={{
-          branches: dataBranches || [],
-          setEditingProduct,
-          setIsFormOpen,
-          handleDelete,
-        }}
-      />
+    // Обработка ошибок
+    if (error) {
+        return (
+            <div className='text-center text-destructive p-8'>
+                <p>Ошибка загрузки продуктов: {error.message}</p>
+            </div>
+        )
+    }
 
-      {/* Диалог для формы продукта */}
-      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {editingProduct ? 'Редактировать продукт' : 'Добавить продукт'}
-            </DialogTitle>
-          </DialogHeader>
-          <ProductForm
-            product={editingProduct}
-            branches={dataBranches?.data ?? []}
-            onSuccess={() => {
-              setIsFormOpen(false);
-              queryClient.invalidateQueries({ queryKey: ['products'] });
-            }}
-            onCancel={() => setIsFormOpen(false)}
-          />
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
+    // Скрытие колонки действий для не-админов
+    const filteredColumns = isAdmin ? columns : columns.filter(col => col.id !== 'actions')
+
+    return (
+        <div className='space-y-8'>
+            <div className='flex items-center justify-between'>
+                <h2 className='text-3xl font-bold tracking-tight'>Продукты</h2>
+                {isAdmin && (
+                    <Button
+                        onClick={() => {
+                            setEditingProduct(undefined)
+                            setIsFormOpen(true)
+                        }}
+                    >
+                        <Plus className='mr-2 h-4 w-4' />
+                        Добавить продукт
+                    </Button>
+                )}
+            </div>
+
+            <DataTable
+                columns={filteredColumns}
+                data={displayData}
+                rowCount={!searchValue.trim() ? dataProducts?.pagination?.total_records : undefined}
+                searchPlaceholder='Поиск по названию...'
+                searchKey='name'
+                isLoading={isLoading}
+                handleChangeSearch={setSearchValue}
+                pageSize={pagePagination.pageSize}
+                handleChangePagination={setPagePagination}
+                onRowClick={isAdmin ? handleEdit : undefined}
+            />
+
+            <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+                <DialogContent className='sm:max-w-lg'>
+                    <DialogHeader>
+                        <DialogTitle>
+                            {editingProduct ? 'Редактировать продукт' : 'Добавить продукт'}
+                        </DialogTitle>
+                    </DialogHeader>
+                    <ProductForm
+                        product={editingProduct}
+                        branches={dataBranches?.data ?? []}
+                        onSuccess={() => {
+                            setIsFormOpen(false)
+                            setEditingProduct(undefined)
+                            queryClient.invalidateQueries({ queryKey: ['products'] })
+                        }}
+                        onCancel={() => {
+                            setIsFormOpen(false)
+                            setEditingProduct(undefined)
+                        }}
+                    />
+                </DialogContent>
+            </Dialog>
+        </div>
+    )
 }
