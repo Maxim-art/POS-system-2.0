@@ -92,7 +92,7 @@ button:focus-visible {
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    /* --background: 0 0% 100%;
     --foreground: 0 0% 3.9%;
     --card: 0 0% 100%;
     --card-foreground: 0 0% 3.9%;
@@ -116,6 +116,42 @@ button:focus-visible {
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
+    --radius: 0.5rem; */
+    --background: 0 0% 100%;               /* Белый фон */
+    --foreground: 0 0% 10%;                /* Тёмно-серый текст */
+    
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+  
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+  
+    --primary: 328 83% 63%;                /* Розовый (основной бренд «Подружки») */
+    --primary-foreground: 0 0% 100%;
+  
+    --secondary: 330 100% 96%;             /* Светло-розовый фон для элементов */
+    --secondary-foreground: 0 0% 20%;
+  
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 50%;
+  
+    --accent: 320 100% 92%;                /* Светло-розовый акцент */
+    --accent-foreground: 0 0% 20%;
+  
+    --destructive: 0 80% 60%;              /* Красный (ошибки/долги) */
+    --destructive-foreground: 0 0% 100%;
+  
+    --border: 330 50% 90%;                 /* Мягкий розоватый бордер */
+    --input: 0 0% 95%;                     /* Светлый фон инпутов */
+  
+    --ring: 328 83% 63%;                   /* Подсветка розовым */
+  
+    --chart-1: 328 83% 63%;                /* Основной розовый */
+    --chart-2: 329 71% 72%;                /* Чуть светлее */
+    --chart-3: 330 100% 85%;               /* Очень светлый розовый */
+    --chart-4: 320 56% 60%;                /* Ближе к ягодному */
+    --chart-5: 300 50% 40%;                /* Малиново-фиолетовый */
+  
     --radius: 0.5rem;
   }
   .dark {

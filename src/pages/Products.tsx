@@ -12,7 +12,6 @@ import { DataTable } from '@/components/common/DataTable'
 import { ProductForm } from '@/components/products/ProductForm'
 import { createProductColumns } from '@/components/products/Columns'
 
-// Функции для получения данных
 const fetchProducts = async (page: number = 1, pageSize: number = 10): Promise<Product[]> => {
     try {
         const response = await productApi.getAll(page, pageSize)

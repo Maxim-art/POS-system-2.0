@@ -9,6 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import logo from '../../../public/logo.png'
 
 export function Header() {
   const { user, logout } = useAuth();
@@ -18,9 +19,10 @@ export function Header() {
     <header className="mx-6 sticky top-2 z-50">
       <div className="flex h-14 items-center">
         <div className="mr-4 flex items-center space-x-2">
-          <ShoppingCart className="h-6 w-6" />
+          {/* <ShoppingCart className="h-6 w-6" /> */}
+          <img src={logo} alt="" className="h-6 w-6" />
           <span className="hidden font-bold sm:inline-block">
-            ShopFlow
+            Подружки
           </span>
         </div>
         
