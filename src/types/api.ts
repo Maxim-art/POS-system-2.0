@@ -38,6 +38,7 @@ export interface Product {
     stock: number;
     description?: string;
     branch_id?: number;
+    images?: Array<File|string>;
     created_at?: Date;
 }
 

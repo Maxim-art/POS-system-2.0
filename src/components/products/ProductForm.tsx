@@ -12,6 +12,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { productApi } from '@/api/productApi'
 
+// const MAX_FILE_SIZE = 5000000;
+// const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+
 const formSchema = z.object({
     name: z.string().min(1, 'Обязательное поле'),
     barcode: z.string().min(1, 'Обязательное поле'),
@@ -31,6 +34,28 @@ const formSchema = z.object({
         .refine(val => !isNaN(val), { message: 'Количество должно быть числом' })
         .refine(val => val >= 0, { message: 'Количество должно быть 0 или больше' }),
     description: z.string().optional(),
+
+    // images: z
+    //   .any()
+    //   .refine((file) => file?.size <= MAX_FILE_SIZE, `Max image size is 5MB.`)
+    //   .refine(
+    //     (file) => ACCEPTED_IMAGE_TYPES.includes(file?.type),
+    //     "Only .jpg, .jpeg, .png and .webp formats are supported."
+    //   ),
+
+    images: z
+      .custom<FileList>()
+      .transform((file) => {
+        console.log('file', file);
+        return file.length > 0 && file.item(0)
+      })
+      .refine((file) => !file || (!!file && file.size <= 10 * 1024 * 1024), {
+        message: "The profile picture must be a maximum of 10MB.",
+      })
+      .refine((file) => !file || (!!file && file.type?.startsWith("image")), {
+        message: "Only images are allowed to be sent.",
+      }),
+
     branch_id: z
         .string()
         .transform(val => Number(val))
@@ -75,6 +100,7 @@ export function ProductForm({ product, branches, onSuccess, onCancel }: ProductF
         stock: String(product?.stock || 0),
         description: product?.description || '',
         branch_id: String(product?.branch_id) || branches.length ? String(branches[0].id) : "",
+        images: [],
     }
 
     const form = useForm<FormData>({
@@ -83,6 +109,9 @@ export function ProductForm({ product, branches, onSuccess, onCancel }: ProductF
     })
 
     const onSubmit = async (data: FormData) => {
+
+      console.log('data',data);
+      return;
         setIsSubmitting(true)
 
         // Prepare the payload by transforming the data to match the Product type
@@ -93,6 +122,7 @@ export function ProductForm({ product, branches, onSuccess, onCancel }: ProductF
             real_price: Number(data.real_price),
             stock: Number(data.stock), // Already transformed by Zod
             description: data.description,
+            // images: File,
             branch_id: Number(data.branch_id) // Already transformed by Zod
         }
 
@@ -233,15 +263,20 @@ export function ProductForm({ product, branches, onSuccess, onCancel }: ProductF
                 <FormField
                   control={form.control}
                   name='images'
-                  render={() => (
-                    <FormItem>
-                      <FormLabel>TODO: Изображения (необязательно)</FormLabel>
-                      <FormControl>
-                        <Input type='file' />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  render={(field) => {
+                    console.log('field', field);
+                    return (
+                      <FormItem>
+                        <FormLabel>TODO: Изображения (необязательно)</FormLabel>
+                        <FormControl>
+                          <Input type="file" multiple={true} {...field} onChange={()=>{
+                            console.log('asd');
+                          }} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
 
                 <FormField
